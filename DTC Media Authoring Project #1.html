@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial; padding: 20px; background: white; }
+    .drop-container {
+      display: flex;
+      gap: 50px;
+      margin-bottom: 30px;
+    }
+    .drop-zone {
+      border: 4px dashed #ccc;
+      padding: 100px;
+      text-align: center;
+      border-radius: 10px;
+      flex: 1;
+    }
+    .images-container {
+      display: flex;
+      gap: 50px;
+    }
+    .image-column {
+      flex: 1;
+    }
+    .image-column h2 {
+      margin-top: 20px;
+    }
+    .image-column img {
+      max-width: 100%;
+      border: 2px solid #ccc;
+      display: none;
+    }
+    .controls {
+      margin: 20px 0;
+      text-align: center;
+    }
+    .controls input, .controls button, .controls select {
+      font-size: 18px;
+      padding: 5px;
+      margin: 0 10px;
+    }
+    .controls button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      padding: 10px 20px;
+    }
+    .controls button:hover {
+      background: #45a049;
+    }
+    .controls button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .merged-section {
+      margin-top: 40px;
+      text-align: center;
+      padding: 20px;
+      background: #f9f9f9;
+      border-radius: 10px;
+    }
+    .pixel-output {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f5f5f5;
+      border: 2px solid #ccc;
+      border-radius: 10px;
+    }
+    .pixel-output h3 {
+      margin-top: 10px;
+      margin-bottom: 5px;
+    }
+    .pixel-data {
+      font-family: monospace;
+      font-size: 11px;
+      max-height: 200px;
+      overflow: auto;
+      background: white;
+      padding: 10px;
+      margin-top: 5px;
+      word-wrap: break-word;
+    }
+  </style>
+</head>
+<body>
+  <title> Media Authoring Project #1 DTC</title>
+  <h1>Image Merger Scrambler</h1>
+  
+  <div class="controls">
+    Number of scrambles: <input type="number" id="numSwaps" value="1000" min="1" max="10000">
+    Block size in pixels: <input type="number" id="blockSize" value="10" min="1" max="100"> 
+    <button id="reglitchButton" disabled>Change Settings</button>
+  </div>
+
+  <div class="drop-container">
+    <div id="dropZone1" class="drop-zone">
+      Drag and drop image 1 here
+    </div>
+    <div id="dropZone2" class="drop-zone">
+      Drag and drop image 2 here
+    </div>
+  </div>
+
+  <div class="images-container">
+    <div class="image-column">
+      <h2>Original Image 1:</h2>
+      <img id="OriginalPreview1" src="">
+      
+      <div id="pixelOutput1" class="pixel-output" style="display:none;">
+        <h3>Pixel Data (first 1000 values):</h3>
+        <div id="pixelInfo1"></div>
+        <div id="pixels1" class="pixel-data"></div>
+      </div>
+
+      <h2>Scrambled Image 1:</h2>
+      <img id="ItemPreview1" src="">
+    </div>
+
+    <div class="image-column">
+      <h2>Original Image 2:</h2>
+      <img id="OriginalPreview2" src="">
+      
+      <div id="pixelOutput2" class="pixel-output" style="display:none;">
+        <h3>Pixel Data (first 1000 values):</h3>
+        <div id="pixelInfo2"></div>
+        <div id="pixels2" class="pixel-data"></div>
+      </div>
+
+      <h2>Scrambled Image 2:</h2>
+      <img id="ItemPreview2" src="">
+    </div>
+  </div>
+
+  <div class="merged-section">
+    <button id="mergeButton" disabled>Merge Images</button>
+    <h2>Merged Image:</h2>
+    <img id="mergedPreview" src="" style="max-width: 600px; border: 2px solid #ccc; display: none;">
+  </div>
+
+  <script>
+    const dropZone1 = document.getElementById('dropZone1');
+    const dropZone2 = document.getElementById('dropZone2');
+    const originalPreview1 = document.getElementById('OriginalPreview1');
+    const originalPreview2 = document.getElementById('OriginalPreview2');
+    const preview1 = document.getElementById('ItemPreview1');
+    const preview2 = document.getElementById('ItemPreview2');
+    const mergeButton = document.getElementById('mergeButton');
+    const reglitchButton = document.getElementById('reglitchButton');
+    const mergedPreview = document.getElementById('mergedPreview');
+    const pixels1Output = document.getElementById('pixels1');
+    const pixels2Output = document.getElementById('pixels2');
+    const pixelInfo1 = document.getElementById('pixelInfo1');
+    const pixelInfo2 = document.getElementById('pixelInfo2');
+    const pixelOutput1 = document.getElementById('pixelOutput1');
+    const pixelOutput2 = document.getElementById('pixelOutput2');
+
+    let canvas1Data = null;
+    let canvas2Data = null;
+    let originalImage1 = null;
+    let originalImage2 = null;
+
+    dropZone1.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone1.style.borderColor = 'black';
+    });
+
+    dropZone2.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone2.style.borderColor = 'black';
+    });
+
+    function displayPixels() {
+      if (canvas1Data) {
+        pixelInfo1.innerHTML = `<p>${canvas1Data.pixels.length} total values (${canvas1Data.pixels.length/4} pixels)</p>`;
+        
+        let output = '';
+        const limit = Math.min(1000, canvas1Data.pixels.length);
+        for (let i = 0; i < limit; i++) {
+          output += canvas1Data.pixels[i] + ' ';
+        }
+        if (canvas1Data.pixels.length > 1000) output += '<br>... (showing first 1000 of ' + canvas1Data.pixels.length + ')';
+        pixels1Output.innerHTML = output;
+        pixelOutput1.style.display = 'block';
+      }
+
+      if (canvas2Data) {
+        pixelInfo2.innerHTML = `<p>${canvas2Data.pixels.length} total values (${canvas2Data.pixels.length/4} pixels)</p>`;
+        
+        let output = '';
+        const limit = Math.min(1000, canvas2Data.pixels.length);
+        for (let i = 0; i < limit; i++) {
+          output += canvas2Data.pixels[i] + ' ';
+        }
+        if (canvas2Data.pixels.length > 1000) output += '<br>... (showing first 1000 of ' + canvas2Data.pixels.length + ')';
+        pixels2Output.innerHTML = output;
+        pixelOutput2.style.display = 'block';
+      }
+    }
+
+    function scrambleImage(canvas, ctx, numSwaps, blockSize) {
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const pixels = imageData.data;
+      
+      const cols = Math.floor(canvas.width / blockSize);
+      const rows = Math.floor(canvas.height / blockSize);
+
+      for (let k = 0; k < numSwaps; k++) {
+        const col1 = Math.floor(Math.random() * cols);
+        const row1 = Math.floor(Math.random() * rows);
+        const col2 = Math.floor(Math.random() * cols);
+        const row2 = Math.floor(Math.random() * rows);
+
+        const x1 = col1 * blockSize;
+        const y1 = row1 * blockSize;
+        const x2 = col2 * blockSize;
+        const y2 = row2 * blockSize;
+
+        for (let by = 0; by < blockSize; by++) {
+          for (let bx = 0; bx < blockSize; bx++) {
+            const pos1 = ((y1 + by) * canvas.width + (x1 + bx)) * 4;
+            const pos2 = ((y2 + by) * canvas.width + (x2 + bx)) * 4;
+
+            for (let c = 0; c < 4; c++) {
+              const temp = pixels[pos1 + c];
+              pixels[pos1 + c] = pixels[pos2 + c];
+              pixels[pos2 + c] = temp;
+            }
+          }
+        }
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+      return { canvas, pixels: new Uint8ClampedArray(pixels), width: canvas.width, height: canvas.height };
+    }
+
+    function processImage(img, previewElement, isImage1) {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+
+      const numSwaps = parseInt(document.getElementById('numSwaps').value);
+      const blockSize = parseInt(document.getElementById('blockSize').value);
+
+      const data = scrambleImage(canvas, ctx, numSwaps, blockSize);
+      
+      if (isImage1) {
+        canvas1Data = data;
+      } else {
+        canvas2Data = data;
+      }
+
+      displayPixels();
+      checkMergeButton();
+
+      canvas.toBlob(blob => {
+        const url = URL.createObjectURL(blob);
+        previewElement.src = url;
+        previewElement.style.display = 'block';
+      });
+    }
+
+    function checkMergeButton() {
+      if (canvas1Data && canvas2Data) {
+        mergeButton.disabled = false;
+      }
+      if (originalImage1 || originalImage2) {
+        reglitchButton.disabled = false;
+      }
+    }
+
+    reglitchButton.addEventListener('click', () => {
+      if (originalImage1) {
+        processImage(originalImage1, preview1, true);
+      }
+      if (originalImage2) {
+        processImage(originalImage2, preview2, false);
+      }
+    });
+
+    mergeButton.addEventListener('click', () => {
+      if (!canvas1Data || !canvas2Data) return;
+
+      const width = canvas1Data.width;
+      const height = canvas1Data.height;
+
+      const mergedCanvas = document.createElement('canvas');
+      mergedCanvas.width = width;
+      mergedCanvas.height = height;
+      const mergedCtx = mergedCanvas.getContext('2d');
+
+      const mergedImageData = mergedCtx.createImageData(width, height);
+      const mergedPixels = mergedImageData.data;
+
+      let pixels2 = canvas2Data.pixels;
+      if (canvas2Data.width !== width || canvas2Data.height !== height) {
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = canvas2Data.width;
+        tempCanvas.height = canvas2Data.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        const tempImageData = tempCtx.createImageData(canvas2Data.width, canvas2Data.height);
+        tempImageData.data.set(canvas2Data.pixels);
+        tempCtx.putImageData(tempImageData, 0, 0);
+
+        const resizedCanvas = document.createElement('canvas');
+        resizedCanvas.width = width;
+        resizedCanvas.height = height;
+        const resizedCtx = resizedCanvas.getContext('2d');
+        resizedCtx.drawImage(tempCanvas, 0, 0, width, height);
+        pixels2 = resizedCtx.getImageData(0, 0, width, height).data;
+      }
+
+      const blockSize = parseInt(document.getElementById('blockSize').value);
+      const cols = Math.floor(width / blockSize);
+      const rows = Math.floor(height / blockSize);
+
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          const useImage1 = Math.random() < 0.5;
+          const sourcePixels = useImage1 ? canvas1Data.pixels : pixels2;
+          const otherPixels = useImage1 ? pixels2 : canvas1Data.pixels;
+
+          const x = col * blockSize;
+          const y = row * blockSize;
+
+          for (let by = 0; by < blockSize; by++) {
+            for (let bx = 0; bx < blockSize; bx++) {
+              const pos = ((y + by) * width + (x + bx)) * 4;
+              
+              mergedPixels[pos] = Math.floor((sourcePixels[pos] + otherPixels[pos]) / 2);
+              mergedPixels[pos + 1] = Math.floor((sourcePixels[pos + 1] + otherPixels[pos + 1]) / 2);
+              mergedPixels[pos + 2] = Math.floor((sourcePixels[pos + 2] + otherPixels[pos + 2]) / 2);
+              mergedPixels[pos + 3] = sourcePixels[pos + 3];
+            }
+          }
+        }
+      }
+
+      mergedCtx.putImageData(mergedImageData, 0, 0);
+
+      mergedCanvas.toBlob(blob => {
+        const url = URL.createObjectURL(blob);
+        mergedPreview.src = url;
+        mergedPreview.style.display = 'block';
+      });
+    });
+
+    dropZone1.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      const file = e.dataTransfer.files[0];
+     
+      if (file && file.type.startsWith('image/')) {
+        const originalUrl = URL.createObjectURL(file);
+        originalPreview1.src = originalUrl;
+        originalPreview1.style.display = 'block';
+
+        const img = new Image();
+        img.onload = () => {
+          originalImage1 = img;
+          processImage(img, preview1, true);
+        };
+        img.src = originalUrl;
+      }
+    });
+
+    dropZone2.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      const file = e.dataTransfer.files[0];
+     
+      if (file && file.type.startsWith('image/')) {
+        const originalUrl = URL.createObjectURL(file);
+        originalPreview2.src = originalUrl;
+        originalPreview2.style.display = 'block';
+
+        const img = new Image();
+        img.onload = () => {
+          originalImage2 = img;
+          processImage(img, preview2, false);
+        };
+        img.src = originalUrl;
+      }
+    });
+  </script>
+</body>
+</html>
